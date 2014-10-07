@@ -15,9 +15,7 @@ struct tp_future {
 // task to store in the queue
 typedef struct {
     int pty;
-
     void *(*func)(void *);
-
     void *arg;
     tp_future *fut;
 } tp_task;
@@ -230,7 +228,7 @@ int tp_free(threadpool *pool) {
 
     // release threadpool if it has been created
     if (pool->ts) {
-        free(pool->ts);
+        pthread_mutex_lock(&pool->lock);
 
         // free the task queue if it has been initialized
         if (pool->tasks != null) {
@@ -238,7 +236,7 @@ int tp_free(threadpool *pool) {
             h_free(pool->tasks);
         }
 
-        pthread_mutex_lock(&pool->lock);
+        free(pool->ts);
         pthread_mutex_destroy(&pool->lock);
         pthread_cond_destroy(&pool->notify);
     }
@@ -296,7 +294,7 @@ static void *tp_thread(void *arg) {
     pthread_exit(null);
 }
 
-void *tp_wait(threadpool *pool, tp_future *fut) {
+void *tp_await(threadpool *pool, tp_future *fut) {
     void *ret = null;
     pthread_mutex_lock(&fut->lock);
     while (!fut->done && !pool->shutdown) {

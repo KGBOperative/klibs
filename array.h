@@ -14,9 +14,6 @@ extern array *arr_copy(array *arr, size_t m);
 // free the memory used by the item array
 extern void arr_free(array *arr);
 
-// reset the state of the array to init
-extern void arr_reset(array *arr);
-
 // insert a item into the item array, return true if successful
 extern bool arr_push(array *arr, void *a);
 

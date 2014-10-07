@@ -43,11 +43,6 @@ void arr_free(array *arr) {
     free(arr);
 }
 
-void arr_reset(array *arr) {
-    memset(arr->as, 0, arr->n * sizeof(void *));
-    arr->n = 0;
-}
-
 void *arr_peek(array *arr) {
     return &arr->as[0];
 }

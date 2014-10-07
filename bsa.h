@@ -1,8 +1,8 @@
 #ifndef BSA
 #define BSA
 
-#include <stddef.h>
 #include "defs.h"
+#include <stddef.h>
 
 typedef struct bsa bsa;
 

@@ -40,6 +40,6 @@ extern tp_future *tp_promise(threadpool *pool, void *(*func), void *arg, int pri
 extern int tp_dest(threadpool *pool, int flags);
 
 // wait for the queue to empty and return
-extern void *tp_wait(threadpool *pool, tp_future *fut);
+extern void *tp_await(threadpool *pool, tp_future *fut);
 
 #endif
