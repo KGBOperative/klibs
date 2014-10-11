@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <pthread.h>
-#include <stdbool.h>
 
 #include "threadpool.h"
 #include "heap.h"
@@ -130,7 +129,7 @@ tp_future *tp_promise(threadpool *pool, void *func, void *arg, int priority) {
     tp_future *fut = null;
 
     if (pool == null || func == null) {
-        return fut;
+        return null;
     }
 
     // wait for lock on the queue, quit if lock fails

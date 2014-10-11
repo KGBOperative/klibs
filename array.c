@@ -53,9 +53,9 @@ void *arr_pop(array *arr) {
     return a;
 }
 
-bool arr_push(array *arr, void *t) {
+bool arr_push(array *arr, void *a) {
     if (arr->n == arr->m) {
-        size_t new_size = arr->m << 1;
+        size_t new_size = arr->m * 2;
         void **new_as;
         if ((new_as = malloc(new_size * sizeof(void *))) == null) {
             return false;
@@ -66,8 +66,8 @@ bool arr_push(array *arr, void *t) {
         arr->m = new_size;
     }
 
-    memcpy(&arr->as[arr->n++], t, sizeof(void *));
-    free(t);
+    arr->as[arr->n++] = a;
+
     return true;
 }
 

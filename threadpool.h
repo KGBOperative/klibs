@@ -1,7 +1,6 @@
 #ifndef THREADPOOL
 #define THREADPOOL
 
-#include <pthread.h>
 #include "defs.h"
 
 typedef enum {

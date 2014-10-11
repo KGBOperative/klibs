@@ -163,13 +163,25 @@ void thlist_foreach(threadlist *l, void *(*func)(void *)) {
 int thlist_reduce(threadlist *l, bool (*func)(void *)) {
     int i = -1;
     if (pthread_mutex_lock(&l->lock) == 0) {
-        node *n = l->head;
+        while (l->head != null && !func(l->head)) {
+            node *tmp = l->head->n;
+            free(l->head);
+            l->head = tmp;
+            l->n--;
+        }
+        node *n = l->head == null ? null : l->head->n;
+        node *p = l->head;
         while (n != null) {
             if (!func(n->a)) {
+                p->n = n->n;
                 node *tmp = n;
+                n = n->n;
+                free(tmp);
+                l->n--;
+            } else {
+                p = n;
+                n = n->n;
             }
-
-            n = n->n;
         }
 
         i = (int)l->n;
