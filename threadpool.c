@@ -95,12 +95,8 @@ int tp_add(threadpool *pool, void *(*func)(void *), void *arg, int priority) {
         return tp_lockfail;
     }
 
-    do {
-        // check for shutdown
-        if (pool->shutdown) {
-            err = tp_shutdown;
-            break;
-        }
+    // check for shutdown
+    if (pool->shutdown) {
 
         tp_task *task = malloc(sizeof(tp_task));
         task->func = func;
@@ -113,9 +109,10 @@ int tp_add(threadpool *pool, void *(*func)(void *), void *arg, int priority) {
         // send notification that the queue is unlocking
         if (pthread_cond_signal(&pool->notify) != 0) {
             err = tp_lockfail;
-            break;
         }
-    } while (0);
+    } else {
+        err = tp_shutdown;
+    }
 
     if (pthread_mutex_unlock(&pool->lock) != 0) {
         err = tp_lockfail;
@@ -137,13 +134,8 @@ tp_future *tp_promise(threadpool *pool, void *func, void *arg, int priority) {
         return fut;
     }
 
-    do {
-        // check for shutdown
-        if (pool->shutdown) {
-            err = tp_shutdown;
-            break;
-        }
-
+    // check for shutdown
+    if (!pool->shutdown) {
         tp_task *task = malloc(sizeof(tp_task));
         task->func = func;
         task->arg = arg;
@@ -161,9 +153,11 @@ tp_future *tp_promise(threadpool *pool, void *func, void *arg, int priority) {
         // send notification that the queue is unlocking
         if (pthread_cond_signal(&pool->notify) != 0) {
             err = tp_lockfail;
-            break;
         }
-    } while (0);
+    } else {
+        err = tp_shutdown;
+    }
+
 
     if (pthread_mutex_unlock(&pool->lock) != 0) {
         err = tp_lockfail;
