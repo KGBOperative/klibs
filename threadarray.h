@@ -24,7 +24,7 @@ extern optional tharr_copy(threadarray *arr, size_t m);
 extern int tharr_free(threadarray *arr);
 
 // insert a item into the item array, return true if successful
-extern bool tharr_push(threadarray *arr, void *a);
+extern bool tharr_push(threadarray *arr, void_ptr a);
 
 // concatenate the src item array onto the end of the dest item array
 // NOTE: src is consumed in this operation
@@ -37,9 +37,9 @@ extern optional tharr_peek(threadarray *arr);
 extern optional tharr_pop(threadarray *arr);
 
 // apply the function to each item in the array
-extern int tharr_foreach(threadarray *arr, void *(*func)(void *));
+extern int tharr_foreach(threadarray *arr, void_ptr (*func)(void_ptr));
 
 // remove the items marked with false by the function, returns the new size of the array
-extern int tharr_reduce(threadarray *arr, optional (*func)(void *));
+extern int tharr_reduce(threadarray *arr, optional (*func)(void_ptr));
 
 #endif // THREADARRAY

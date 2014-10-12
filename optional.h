@@ -1,9 +1,11 @@
+#ifndef OPTIONAL
 #include "defs.h"
 
 typedef struct {
     bool e;
     union {
-        void *val;
+        void_ptr val;
         int err;
     };
 } optional;
+#endif  // OPTIONAL

@@ -15,22 +15,22 @@ extern threadlist *thlist_copy(threadlist *src, size_t m);
 extern void thlist_free(threadlist *l);
 
 // insert a item into the item threadlist, return true if successful
-extern bool thlist_push(threadlist *l, void *a);
+extern bool thlist_push(threadlist *l, void_ptr a);
 
 // concatenate the src item threadlist onto the end of the dest item threadlist
 extern bool thlist_concat(threadlist *dest, threadlist *src);
 
 // peek at the head of the item threadlist
-extern void *thlist_peek(threadlist *l);
+extern void_ptr thlist_peek(threadlist *l);
 
 // pop the head of the item threadlist
-extern void *thlist_pop(threadlist *l);
+extern void_ptr thlist_pop(threadlist *l);
 
 // apply the function to each item in the threadlist
-extern void thlist_foreach(threadlist *l, void *(*func)(void *));
+extern void thlist_foreach(threadlist *l, void_ptr (*func)(void_ptr));
 
 // remove the items marked with false by the function, returns the new size of the threadlist
-extern int thlist_reduce(threadlist *l, bool (*func)(void *));
+extern int thlist_reduce(threadlist *l, bool (*func)(void_ptr));
 
 #endif // THREADLIST
 

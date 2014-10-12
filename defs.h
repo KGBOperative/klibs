@@ -8,3 +8,6 @@
 #define null ((void*)0)
 #endif
 
+#ifndef void_ptr
+#define void_ptr void*
+#endif

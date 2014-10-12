@@ -5,7 +5,7 @@
 
 typedef struct node node;
 struct node {
-    void *a;
+    void_ptr a;
     node *n;
 };
 
@@ -69,7 +69,7 @@ void thlist_free(threadlist *l) {
     free(l);
 }
 
-bool thlist_push(threadlist *l, void *a) {
+bool thlist_push(threadlist *l, void_ptr a) {
     if (pthread_mutex_lock(&l->lock) != 0) {
         return false;
     }
@@ -119,8 +119,8 @@ bool thlist_concat(threadlist *dest, threadlist *src) {
     return true;
 }
 
-void *thlist_peek(threadlist *l) {
-    void *a = null;
+void_ptr thlist_peek(threadlist *l) {
+    void_ptr a = null;
 
     if (pthread_mutex_lock(&l->lock)) {
         a = l->n != 0 ? l->head->a : a;
@@ -130,8 +130,8 @@ void *thlist_peek(threadlist *l) {
     return a;
 }
 
-void *thlist_pop(threadlist *l) {
-    void *a = null;
+void_ptr thlist_pop(threadlist *l) {
+    void_ptr a = null;
 
     if (pthread_mutex_lock(&l->lock) == 0) {
         if (l->n != 0) {
@@ -149,7 +149,7 @@ void *thlist_pop(threadlist *l) {
     return a;
 }
 
-void thlist_foreach(threadlist *l, void *(*func)(void *)) {
+void thlist_foreach(threadlist *l, void_ptr (*func)(void_ptr)) {
     if (pthread_mutex_lock(&l->lock) == 0) {
         node *n;
         for (n = l->head; n != null; n = n->n) {
@@ -160,7 +160,7 @@ void thlist_foreach(threadlist *l, void *(*func)(void *)) {
     }
 }
 
-int thlist_reduce(threadlist *l, bool (*func)(void *)) {
+int thlist_reduce(threadlist *l, bool (*func)(void_ptr)) {
     int i = -1;
     if (pthread_mutex_lock(&l->lock) == 0) {
         while (l->head != null && !func(l->head)) {

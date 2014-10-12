@@ -30,15 +30,15 @@ extern threadpool *tp_init(size_t num_ts);
 
 // add a function to the task pool; returns 0 on success and an err_tp on failure
 // note: any return value for func is ignored
-extern int tp_add(threadpool *pool, void *(*func)(void *), void *arg, int priority);
+extern int tp_add(threadpool *pool, void_ptr (*func)(void_ptr), void_ptr arg, int priority);
 
 // add a function to the task pool; return a tp_future on success and null on failure
-extern tp_future *tp_promise(threadpool *pool, void *(*func), void *arg, int priority);
+extern tp_future *tp_promise(threadpool *pool, void_ptr (*func), void_ptr arg, int priority);
 
 // destroy the given threadpool in the manner determined by the flag (sflags_tp)
 extern int tp_dest(threadpool *pool, int flags);
 
 // wait for the queue to empty and return
-extern void *tp_await(threadpool *pool, tp_future *fut);
+extern void_ptr tp_await(threadpool *pool, tp_future *fut);
 
 #endif

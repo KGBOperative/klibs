@@ -11,7 +11,7 @@ struct threadarray {
     size_t n;
     pthread_mutex_t lock;
     pthread_cond_t notify;
-    void **as;
+    void_ptr *as;
 };
 
 optional tharr_init(size_t m) {
@@ -25,7 +25,7 @@ optional tharr_init(size_t m) {
         return opt;
     }
 
-    if ((arr->as = malloc(m * sizeof(void *))) == null) {
+    if ((arr->as = malloc(m * sizeof(void_ptr))) == null) {
         free(arr);
         opt.e = false;
         opt.err = malloc_fail;
@@ -42,7 +42,7 @@ optional tharr_init(size_t m) {
     }
 
     *((int8_t *) arr) = 6;
-    memset(arr->as, 0, m * sizeof(void *));
+    memset(arr->as, 0, m * sizeof(void_ptr));
     arr->m = m;
     arr->n = 0;
 
@@ -61,7 +61,7 @@ optional tharr_copy(threadarray *arr, size_t m) {
         return opt;
     }
 
-    if ((new_arr->as = malloc(m * sizeof(void *))) == null) {
+    if ((new_arr->as = malloc(m * sizeof(void_ptr))) == null) {
         free(new_arr);
         opt.e = false;
         opt.err = malloc_fail;
@@ -80,7 +80,7 @@ optional tharr_copy(threadarray *arr, size_t m) {
 
     if (pthread_mutex_lock(&arr->lock) == 0) {
         new_arr->n = arr->n < m ? arr->n : m;
-        memcpy(new_arr->as, arr->as, new_arr->n * sizeof(void *));
+        memcpy(new_arr->as, arr->as, new_arr->n * sizeof(void_ptr));
         pthread_mutex_unlock(&arr->lock);
     } else {
         free(new_arr->as);
@@ -115,7 +115,7 @@ optional tharr_peek(threadarray *arr) {
     opt.e = true;
     if (pthread_mutex_lock(&arr->lock) == 0) {
         if (arr->n > 0) {
-            void *a = arr->as[0];
+            void_ptr a = arr->as[0];
 
             pthread_mutex_unlock(&arr->lock);
             opt.val = a;
@@ -137,8 +137,8 @@ optional tharr_pop(threadarray *arr) {
     opt.e = true;
     if (pthread_mutex_lock(&arr->lock) == 0) {
         if (arr->n > 0) {
-            void *a = arr->as[0];
-            memmove(arr->as, &arr->as[1], (arr->n--) * sizeof(void *));
+            void_ptr a = arr->as[0];
+            memmove(arr->as, &arr->as[1], (arr->n--) * sizeof(void_ptr));
 
             pthread_mutex_unlock(&arr->lock);
             pthread_cond_broadcast(&arr->notify);
@@ -157,16 +157,16 @@ optional tharr_pop(threadarray *arr) {
     }
 }
 
-bool tharr_push(threadarray *arr, void *a) {
+bool tharr_push(threadarray *arr, void_ptr a) {
     if (pthread_mutex_lock(&arr->lock) == 0) {
         if (arr->n == arr->m) {
             size_t new_size = arr->m * 2;
-            void **new_as;
-            if ((new_as = malloc(new_size * sizeof(void *))) == null) {
+            void_ptr *new_as;
+            if ((new_as = malloc(new_size * sizeof(void_ptr))) == null) {
                 pthread_mutex_unlock(&arr->lock);
                 return false;
             }
-            memcpy(new_as, arr->as, arr->m * sizeof(void *));
+            memcpy(new_as, arr->as, arr->m * sizeof(void_ptr));
             free(arr->as);
             arr->as = new_as;
             arr->m = new_size;
@@ -187,18 +187,18 @@ bool tharr_concat(threadarray *dest, threadarray *src) {
             pthread_mutex_lock(&src->lock) == 0) {
         if (dest->n + src->n >= dest->m) {
             size_t new_size = dest->m + src->m;
-            void **new_as;
-            if ((new_as = malloc(new_size * sizeof(void *))) == null) {
+            void_ptr *new_as;
+            if ((new_as = malloc(new_size * sizeof(void_ptr))) == null) {
                 pthread_mutex_unlock(&dest->lock);
                 pthread_mutex_unlock(&src->lock);
                 return false;
             }
-            memcpy(new_as, dest->as, dest->n * sizeof(void *));
+            memcpy(new_as, dest->as, dest->n * sizeof(void_ptr));
             free(dest->as);
             dest->as = new_as;
         }
 
-        memcpy(&dest->as[dest->n], src->as, src->n * sizeof(void *));
+        memcpy(&dest->as[dest->n], src->as, src->n * sizeof(void_ptr));
         dest->n += src->n;
 
         free(src->as);
@@ -216,7 +216,7 @@ bool tharr_concat(threadarray *dest, threadarray *src) {
     }
 }
 
-int tharr_foreach(threadarray *arr, void *(*func)(void *)) {
+int tharr_foreach(threadarray *arr, void_ptr (*func)(void_ptr)) {
     if (pthread_mutex_lock(&arr->lock) == 0) {
         int i;
         for (i = 0; i < arr->n; i++) {
@@ -231,7 +231,7 @@ int tharr_foreach(threadarray *arr, void *(*func)(void *)) {
     }
 }
 
-int tharr_reduce(threadarray *arr, optional (*func)(void *)) {
+int tharr_reduce(threadarray *arr, optional (*func)(void_ptr)) {
     if (pthread_mutex_lock(&arr->lock) == 0) {
         int i, c = 0;
         for (i = 0; i < arr->n; i++) {
@@ -244,7 +244,7 @@ int tharr_reduce(threadarray *arr, optional (*func)(void *)) {
 
         if (c < arr->n) {
             arr->n = (size_t)c;
-            memset(&arr->as[c], 0, (arr->m - arr->n) * sizeof(void *));
+            memset(&arr->as[c], 0, (arr->m - arr->n) * sizeof(void_ptr));
         }
 
         pthread_mutex_unlock(&arr->lock);
