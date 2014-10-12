@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include "defs.h"
 #include "threadarray.h"
+#include "optional.h"
 
 struct threadarray {
     const int8_t t;
@@ -13,22 +14,31 @@ struct threadarray {
     void **as;
 };
 
-threadarray *tharr_init(size_t m) {
+optional tharr_init(size_t m) {
+    optional opt;
+    opt.e = true;
+
     threadarray *arr;
     if ((arr = malloc(sizeof(threadarray))) == null) {
-        return null;
+        opt.e = false;
+        opt.err = malloc_fail;
+        return opt;
     }
 
     if ((arr->as = malloc(m * sizeof(void *))) == null) {
         free(arr);
-        return null;
+        opt.e = false;
+        opt.err = malloc_fail;
+        return opt;
     }
 
     if ((pthread_cond_init(&arr->notify, null) != 0) ||
             pthread_mutex_init(&arr->lock, null) != 0) {
         free(arr->as);
         free(arr);
-        return null;
+        opt.e = false;
+        opt.err = init_lock_fail;
+        return opt;
     }
 
     *((int8_t *) arr) = 6;
@@ -36,20 +46,37 @@ threadarray *tharr_init(size_t m) {
     arr->m = m;
     arr->n = 0;
 
-    return arr;
+    opt.val = arr;
+    return opt;
 }
 
-threadarray *tharr_copy(threadarray *arr, size_t m) {
+optional tharr_copy(threadarray *arr, size_t m) {
+    optional opt;
+    opt.e = true;
+
     threadarray *new_arr;
     if ((new_arr = malloc(sizeof(threadarray))) == null) {
-        return null;
+        opt.e = false;
+        opt.err = malloc_fail;
+        return opt;
     }
 
     if ((new_arr->as = malloc(m * sizeof(void *))) == null) {
         free(new_arr);
-        return null;
+        opt.e = false;
+        opt.err = malloc_fail;
+        return opt;
     }
+
     new_arr->m = m;
+    if ((pthread_cond_init(&arr->notify, null) != 0) ||
+            pthread_mutex_init(&arr->lock, null) != 0) {
+        free(arr->as);
+        free(arr);
+        opt.e = false;
+        opt.err = init_lock_fail;
+        return opt;
+    }
 
     if (pthread_mutex_lock(&arr->lock) == 0) {
         new_arr->n = arr->n < m ? arr->n : m;
@@ -58,43 +85,75 @@ threadarray *tharr_copy(threadarray *arr, size_t m) {
     } else {
         free(new_arr->as);
         free(new_arr);
-        return null;
+        opt.e = false;
+        opt.err = get_lock_fail;
+        return opt;
     }
 
-    return new_arr;
+    opt.val = new_arr;
+    return opt;
 }
 
-void tharr_free(threadarray *arr) {
-    pthread_mutex_lock(&arr->lock);
+int tharr_free(threadarray *arr) {
+    if(pthread_mutex_lock(&arr->lock) != 0) {
+        return get_lock_fail;
+    }
 
     free(arr->as);
 
-    pthread_cond_destroy(&arr->notify);
-    pthread_mutex_destroy(&arr->lock);
+    if (pthread_cond_destroy(&arr->notify) != 0 ||
+            pthread_mutex_destroy(&arr->lock) != 0) {
+        return init_lock_fail;
+    }
 
     free(arr);
+    return no_err;
 }
 
-void *tharr_peek(threadarray *arr) {
+optional tharr_peek(threadarray *arr) {
+    optional opt;
+    opt.e = true;
     if (pthread_mutex_lock(&arr->lock) == 0) {
-        void *a = arr->as[0];
+        if (arr->n > 0) {
+            void *a = arr->as[0];
 
-        pthread_mutex_unlock(&arr->lock);
-        return a;
+            pthread_mutex_unlock(&arr->lock);
+            opt.val = a;
+            return opt;
+        } else {
+            opt.e = false;
+            opt.err = container_empty;
+            return opt;
+        }
     } else {
-        return null;
+        opt.e = false;
+        opt.err = get_lock_fail;
+        return opt;
     }
 }
 
-void *tharr_pop(threadarray *arr) {
-    if (pthread_mutex_lock(&arr->lock) == 0 && arr->n > 0) {
-        void *a = arr->as[0];
-        memmove(arr->as, &arr->as[1], (arr->n--) * sizeof(void *));
+optional tharr_pop(threadarray *arr) {
+    optional opt;
+    opt.e = true;
+    if (pthread_mutex_lock(&arr->lock) == 0) {
+        if (arr->n > 0) {
+            void *a = arr->as[0];
+            memmove(arr->as, &arr->as[1], (arr->n--) * sizeof(void *));
 
-        pthread_mutex_unlock(&arr->lock);
-        return a;
+            pthread_mutex_unlock(&arr->lock);
+            pthread_cond_broadcast(&arr->notify);
+
+            opt.val = a;
+            return opt;
+        } else {
+            opt.e = false;
+            opt.err = container_empty;
+            return opt;
+        }
     } else {
-        return null;
+        opt.e = false;
+        opt.err = get_lock_fail;
+        return opt;
     }
 }
 
@@ -115,6 +174,7 @@ bool tharr_push(threadarray *arr, void *a) {
 
         arr->as[arr->n++] = a;
         pthread_mutex_unlock(&arr->lock);
+        pthread_cond_broadcast(&arr->notify);
 
         return true;
     } else {
@@ -123,45 +183,74 @@ bool tharr_push(threadarray *arr, void *a) {
 }
 
 bool tharr_concat(threadarray *dest, threadarray *src) {
-
-    if (dest->n + src->n >= dest->m) {
-        size_t new_size = dest->m + src->m;
-        void **new_as;
-        if ((new_as = malloc(new_size * sizeof(void *))) == null) {
-            return false;
+    if (pthread_mutex_lock(&dest->lock) == 0 &&
+            pthread_mutex_lock(&src->lock) == 0) {
+        if (dest->n + src->n >= dest->m) {
+            size_t new_size = dest->m + src->m;
+            void **new_as;
+            if ((new_as = malloc(new_size * sizeof(void *))) == null) {
+                pthread_mutex_unlock(&dest->lock);
+                pthread_mutex_unlock(&src->lock);
+                return false;
+            }
+            memcpy(new_as, dest->as, dest->n * sizeof(void *));
+            free(dest->as);
+            dest->as = new_as;
         }
-        memcpy(new_as, dest->as, dest->n * sizeof(void *));
-        free(dest->as);
-        dest->as = new_as;
-    }
 
-    memcpy(&dest->as[dest->n], src->as, src->n * sizeof(void *));
-    dest->n += src->n;
-    tharr_free(src);
-    return true;
+        memcpy(&dest->as[dest->n], src->as, src->n * sizeof(void *));
+        dest->n += src->n;
+
+        free(src->as);
+        pthread_mutex_destroy(&src->lock);
+        pthread_cond_destroy(&src->notify);
+        free(src);
+
+        pthread_mutex_unlock(&dest->lock);
+        pthread_cond_broadcast(&dest->notify);
+        return true;
+    } else {
+        pthread_mutex_unlock(&dest->lock);
+        pthread_mutex_unlock(&src->lock);
+        return false;
+    }
 }
 
-void tharr_foreach(threadarray *arr, void *(*func)(void *)) {
-    int i;
-    for (i = 0; i < arr->n; i++) {
-        arr->as[i] = func(arr->as[i]);
+int tharr_foreach(threadarray *arr, void *(*func)(void *)) {
+    if (pthread_mutex_lock(&arr->lock) == 0) {
+        int i;
+        for (i = 0; i < arr->n; i++) {
+            arr->as[i] = func(arr->as[i]);
+        }
+
+        pthread_mutex_unlock(&arr->lock);
+        pthread_cond_broadcast(&arr->notify);
+        return no_err;
+    } else {
+        return get_lock_fail;
     }
 }
 
-size_t tharr_reduce(threadarray *arr, bool (*func)(void *)) {
-    size_t i, c = 0;
-    for (i = 0; i < arr->n && func(arr->as[i]); i++, c++) {
-    }
-
-    if (c < arr->n) {
-        for (i++; i < arr->n; i++) {
-            if (func(arr->as[i])) {
-                arr->as[c++] = arr->as[i];
+int tharr_reduce(threadarray *arr, optional (*func)(void *)) {
+    if (pthread_mutex_lock(&arr->lock) == 0) {
+        int i, c = 0;
+        for (i = 0; i < arr->n; i++) {
+            optional opt = func(arr->as[i]);
+            if (opt.e) {
+                arr->as[c] = opt.val;
+                c++;
             }
         }
 
-        arr->n = c;
-    }
+        if (c < arr->n) {
+            arr->n = (size_t)c;
+            memset(&arr->as[c], 0, (arr->m - arr->n) * sizeof(void *));
+        }
 
-    return arr->n;
+        pthread_mutex_unlock(&arr->lock);
+        pthread_cond_broadcast(&arr->notify);
+        return c;
+    } else {
+        return get_lock_fail;
+    }
 }

@@ -182,13 +182,8 @@ int tp_dest(threadpool *pool, int flags) {
         return tp_lockfail;
     }
 
-    do {
-        // check that we're not shutting down already
-        if (pool->shutdown) {
-            err = tp_shutdown;
-            break;
-        }
-
+    // check that we're not shutting down already
+    if (!pool->shutdown) {
         pool->shutdown = (flags & tpexit_graceful) ?
                 tpsdown_soft : tpsdown_now;
 
@@ -196,7 +191,6 @@ int tp_dest(threadpool *pool, int flags) {
         if (pthread_cond_broadcast(&pool->notify) != 0 ||
                 pthread_mutex_unlock(&pool->lock) != 0) {
             err = tp_lockfail;
-            break;
         }
 
         // recall worker threads
@@ -205,7 +199,9 @@ int tp_dest(threadpool *pool, int flags) {
                 err = tp_threadfail;
             }
         }
-    } while (0);
+    } else {
+        err = tp_shutdown;
+    }
 
     // don't free if we hit an error
     if (!err) {
